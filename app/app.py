@@ -11,7 +11,7 @@ load_dotenv()
 
 # Inicializar app Flask
 app = Flask(__name__)
-app.secret_key = os.getenv('SECRET_KEY', 'chave_desenvolvimento')
+app.secret_key = os.getenv('SECRET_KEY', 'development_key')
 
 # Habilitar CORS para API
 @app.after_request
@@ -22,7 +22,7 @@ def add_cors_headers(response):
     return response
 
 # Conectar ao MongoDB
-uri = os.getenv('MONGO_URI', 'mongodb://mongo:27017')
+uri = os.getenv('MONGO_URI')
 
 # Use a versão mais recente da ServerApi se disponível, mas com fallback para compatibilidade
 try:
@@ -32,21 +32,30 @@ except Exception:
 
 # Verificar conexão com ping no servidor
 try:
+    # First try to ping
     client.admin.command('ping')
+    print("Ping bem sucedido ao MongoDB!")
+    
+    # If ping works, try to access the database
+    db = client['banco_estabelecimentos']
+    print("Banco de dados selecionado com sucesso!")
+    
+    # Try to access the collection
+    colecao = db['estabelecimentos']
+    print("Coleção selecionada com sucesso!")
+    
+    # Try to create the index
+    colecao.create_index([('localizacao', GEOSPHERE)])
+    print("Índice geoespacial criado com sucesso!")
+    
     print("Conectado com sucesso ao MongoDB!")
 except Exception as e:
-    print(f"Erro de conexão com MongoDB: {e}")
-
-# Configurar banco de dados e coleção
-db = client['banco_estabelecimentos']
-colecao = db['estabelecimentos']
-
-# Garantir que o índice geoespacial seja criado
-try:
-    colecao.create_index([('localizacao', GEOSPHERE)])
-    print("Índice geoespacial criado")
-except Exception as e:
-    print(f"Erro ao criar índice geoespacial: {e}")
+    print(f"Erro detalhado de conexão com MongoDB: {str(e)}")
+    print(f"Tipo do erro: {type(e).__name__}")
+    import traceback
+    print("Stack trace:")
+    print(traceback.format_exc())
+    raise e
 
 # Fórmula de Haversine para calcular distância entre dois pontos em km
 def calcular_distancia(lat1, lon1, lat2, lon2):
