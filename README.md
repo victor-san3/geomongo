@@ -98,15 +98,10 @@ A aplicação expõe uma API REST para acesso aos dados geoespaciais:
 
 3. Configure o ambiente:
    ```bash
-   # Cria arquivo de configuração
+   # Copie o arquivo de configuração
    cp env.example .env
    ```
 
-4. No arquivo `.env`, configure:
-   ```
-   MONGO_URI=mongodb://localhost:27017/
-   SECRET_KEY=sua_chave_secreta
-   ```
 
 ## Como Executar localmente? 🏃‍♂️
 
