@@ -197,4 +197,4 @@ A aplicação utiliza recursos geoespaciais do MongoDB para:
 
 ## Desenvolvido por
 
-Este projeto foi desenvolvido como parte do curso de Tecnologia da Universidade de Sorocaba (UNISO).
+Victor Sanchez e Leticia Ferrazzini.
