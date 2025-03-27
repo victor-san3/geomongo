@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0">Buscar Estabelecimentos Próximos</h5>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-info">
+            Selecione um estabelecimento para encontrar todos os outros estabelecimentos que estão dentro de um raio específico.
+        </div>
+        
+        <form method="POST" action="{{ url_for('buscar_proximos') }}" class="mb-4">
+            <div class="row align-items-end">
+                <div class="col-md-6 mb-3 mb-md-0">
+                    <label for="estabelecimento" class="form-label">Selecione um Estabelecimento</label>
+                    <select class="form-select" id="estabelecimento" name="estabelecimento" required>
+                        <option value="">Selecionar...</option>
+                        {% for estabelecimento in estabelecimentos %}
+                            <option value="{{ estabelecimento.nome }}" {% if estabelecimento_selecionado == estabelecimento.nome %}selected{% endif %}>
+                                {{ estabelecimento.nome }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3 mb-3 mb-md-0">
+                    <label for="raio" class="form-label">Raio de Busca (km)</label>
+                    <input type="number" class="form-control" id="raio" name="raio" value="{{ raio|default(5) }}" min="1" max="50" required>
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-primary w-100">Buscar</button>
+                </div>
+            </div>
+        </form>
+        
+        {% if estabelecimento_selecionado %}
+            <h5 class="mt-4">Estabelecimentos próximos a "{{ estabelecimento_selecionado }}" (raio de {{ raio }} km):</h5>
+            
+            {% if resultados %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Nome</th>
+                                <th>Latitude</th>
+                                <th>Longitude</th>
+                                <th>Distância (km)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for resultado in resultados %}
+                                <tr>
+                                    <td>{{ resultado.nome }}</td>
+                                    <td>{{ resultado.latitude }}</td>
+                                    <td>{{ resultado.longitude }}</td>
+                                    <td>{{ "%.2f"|format(resultado.distancia|float) }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="alert alert-warning">
+                    Não foram encontrados estabelecimentos a menos de {{ raio }} km do estabelecimento selecionado.
+                </div>
+            {% endif %}
+        {% endif %}
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">Mapa de Estabelecimentos</h5>
+            </div>
+            <div class="card-body">
+                <div class="map-container">
+                    <div id="map"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Passar variáveis do Flask para o JavaScript de forma segura -->
+<script type="text/javascript">
+    // Armazenar dados do backend em variáveis JavaScript
+    var APP_DATA = {
+        estabelecimentoSelecionado: "{{ estabelecimento_selecionado|default('') }}",
+        raio: {{ raio|default(5, true) }},
+        resultados: {% if resultados %}{{ resultados|tojson }}{% else %}[]{% endif %}
+    };
+</script>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Criar mapa centralizado no Brasil
+        const map = L.map('map').setView([-15.77972, -47.92972], 4);
+        
+        // Adicionar camada do OpenStreetMap
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+        
+        // Buscar estabelecimentos e adicionar marcadores
+        fetch('/api/estabelecimentos')
+            .then(response => response.json())
+            .then(data => {
+                // Ícone personalizado para o estabelecimento selecionado
+                const iconeSelecionado = L.icon({
+                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41],
+                    popupAnchor: [1, -34],
+                    shadowSize: [41, 41]
+                });
+                
+                // Ícone normal para outros estabelecimentos
+                const iconeNormal = L.icon({
+                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41],
+                    popupAnchor: [1, -34],
+                    shadowSize: [41, 41]
+                });
+                
+                // Ícone para estabelecimentos próximos
+                const iconeProximo = L.icon({
+                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41],
+                    popupAnchor: [1, -34],
+                    shadowSize: [41, 41]
+                });
+                
+                // Usar as variáveis definidas no escopo global
+                const nomeSelecionado = APP_DATA.estabelecimentoSelecionado;
+                const resultadosData = APP_DATA.resultados;
+                let coordenadasSelecionado = null;
+                
+                // Adicionar todos os estabelecimentos ao mapa
+                L.geoJSON(data, {
+                    pointToLayer: function(feature, latlng) {
+                        const isSelecionado = feature.properties.name === nomeSelecionado;
+                        const isProximo = resultadosData.length > 0 && 
+                                         resultadosData.some(e => e.nome === feature.properties.name);
+                        
+                        if (isSelecionado) {
+                            coordenadasSelecionado = latlng;
+                            return L.marker(latlng, { icon: iconeSelecionado });
+                        } else if (isProximo) {
+                            return L.marker(latlng, { icon: iconeProximo });
+                        }
+                        
+                        return L.marker(latlng, { icon: iconeNormal });
+                    },
+                    onEachFeature: function(feature, layer) {
+                        layer.bindPopup(feature.properties.name);
+                    }
+                }).addTo(map);
+                
+                // Se temos um estabelecimento selecionado, mostrar raio
+                if (coordenadasSelecionado) {
+                    L.circle(coordenadasSelecionado, {
+                        radius: APP_DATA.raio * 1000,  // km para metros
+                        fillColor: '#ff3333',
+                        fillOpacity: 0.1,
+                        color: '#ff3333',
+                        weight: 1
+                    }).addTo(map);
+                    
+                    // Centralizar mapa no estabelecimento selecionado
+                    map.setView(coordenadasSelecionado, 11);
+                } else if (data.features.length > 0) {
+                    // Se não há seleção mas temos estabelecimentos, ajustar para mostrar todos
+                    const geoLayer = L.geoJSON(data);
+                    map.fitBounds(geoLayer.getBounds(), { padding: [50, 50] });
+                }
+            })
+            .catch(error => console.error('Erro ao carregar estabelecimentos:', error));
+    });
+</script>
+{% endblock %}

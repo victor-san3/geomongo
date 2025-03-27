@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">Sistema de Cadastro de Estabelecimentos</h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5>Bem-vindo ao sistema!</h5>
+                        <p>Este sistema permite o cadastro e gerenciamento de estabelecimentos com validação de distância 
+                        e geração de relatórios geográficos.</p>
+                        
+                        <h5 class="mt-4">Principais funcionalidades:</h5>
+                        <ul>
+                            <li>Cadastro de estabelecimentos com coordenadas geográficas</li>
+                            <li>Visualização de estabelecimentos em mapa interativo</li>
+                            <li>Busca de estabelecimentos próximos em um raio personalizado</li>
+                        </ul>
+                        
+                        <div class="mt-4">
+                            <a href="/cadastro" class="btn btn-primary me-2">Cadastrar Estabelecimento</a>
+                            <a href="/estabelecimentos" class="btn btn-success me-2">Listar Estabelecimentos</a>
+                            <a href="/busca-proximos" class="btn btn-info">Buscar Próximos</a>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="map-container">
+                            <div id="indexMap"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Create map centered on Brazil
+        const map = L.map('indexMap').setView([-15.77972, -47.92972], 4);
+        
+        // Add OpenStreetMap layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+        
+        // Fetch establishments and add markers
+        fetch('/api/estabelecimentos')
+            .then(response => response.json())
+            .then(data => {
+                L.geoJSON(data, {
+                    pointToLayer: function(feature, latlng) {
+                        return L.marker(latlng);
+                    },
+                    onEachFeature: function(feature, layer) {
+                        layer.bindPopup(feature.properties.name);
+                    }
+                }).addTo(map);
+                
+                // If we have establishments, fit the map to show all of them
+                if (data.features.length > 0) {
+                    const geoLayer = L.geoJSON(data);
+                    map.fitBounds(geoLayer.getBounds(), { padding: [50, 50] });
+                }
+            })
+            .catch(error => console.error('Error loading establishments:', error));
+    });
+</script>
+{% endblock %}

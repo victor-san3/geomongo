@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.geomongoenv/
+venv/
+ENV/
+.env
+env.example
+*.pyc
+
+# Flask
+instance/
+.webassets-cache
+app/static/uploads/
+
+# MongoDB
+/data/
+*.ns
+*.0
+dump/
+
+# Development/IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs and databases
+*.log
+*.sqlite3
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# System Files
+.DS_Store
+Thumbs.db
+.directory
+desktop.ini

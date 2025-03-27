@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Cadastrar Novo Estabelecimento</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('cadastrar_estabelecimento') }}">
+                    <div class="mb-3">
+                        <label for="nome" class="form-label">Nome do Estabelecimento</label>
+                        <input type="text" class="form-control" id="nome" name="nome" required>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="latitude" class="form-label">Latitude</label>
+                            <input type="number" class="form-control" id="latitude" name="latitude" 
+                                   step="0.000001" required>
+                            <small class="text-muted">Ex: -23.5505</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="longitude" class="form-label">Longitude</label>
+                            <input type="number" class="form-control" id="longitude" name="longitude" 
+                                   step="0.000001" required>
+                            <small class="text-muted">Ex: -46.6333</small>
+                        </div>
+                    </div>
+                    <div class="alert alert-info">
+                        <small>Dica: Use o mapa abaixo para selecionar a localização. Clique em qualquer ponto para obter suas coordenadas.</small>
+                    </div>
+                    <div class="map-container mb-4">
+                        <div id="map"></div>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('listar_estabelecimentos') }}" class="btn btn-secondary">Cancelar</a>
+                        <button type="submit" class="btn btn-success">Cadastrar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Criar mapa centralizado no Brasil
+        const map = L.map('map').setView([-15.77972, -47.92972], 4);
+        
+        // Adicionar camada do OpenStreetMap
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+        
+        // Marcador atual
+        let marker = null;
+        
+        // Adicionar evento de clique para obter coordenadas
+        map.on('click', function(e) {
+            // Remover marcador anterior se existir
+            if (marker) {
+                map.removeLayer(marker);
+            }
+            
+            // Adicionar marcador na localização clicada
+            marker = L.marker(e.latlng).addTo(map);
+            
+            // Atualizar campos do formulário
+            document.getElementById('latitude').value = e.latlng.lat.toFixed(6);
+            document.getElementById('longitude').value = e.latlng.lng.toFixed(6);
+        });
+        
+        // Buscar estabelecimentos para mostrar os existentes
+        fetch('/api/estabelecimentos')
+            .then(response => response.json())
+            .then(data => {
+                L.geoJSON(data, {
+                    pointToLayer: function(feature, latlng) {
+                        return L.marker(latlng, {
+                            icon: L.divIcon({
+                                className: 'existing-marker',
+                                html: '<div style="background-color: rgba(255, 0, 0, 0.7); width: 10px; height: 10px; border-radius: 50%;"></div>'
+                            })
+                        });
+                    },
+                    onEachFeature: function(feature, layer) {
+                        layer.bindPopup(feature.properties.name);
+                    }
+                }).addTo(map);
+                
+                // Se tivermos estabelecimentos, ajustar o mapa para mostrar todos
+                if (data.features.length > 0) {
+                    const geoLayer = L.geoJSON(data);
+                    map.fitBounds(geoLayer.getBounds(), { padding: [50, 50] });
+                }
+            })
+            .catch(error => console.error('Erro ao carregar estabelecimentos:', error));
+    });
+</script>
+{% endblock %}
