@@ -83,62 +83,8 @@ A aplicação expõe uma API REST para acesso aos dados geoespaciais:
 - `POST /cadastro`: Cadastra um novo estabelecimento com validação geoespacial
 - `DELETE /excluir/<nome>`: Remove um estabelecimento
 
-## Desafios Técnicos Resolvidos
 
-1. **Serialização de ObjectId**: Implementação de conversor personalizado para serialização de documentos MongoDB:
-   ```python
-def converter_para_dict(documento):
-    if documento is None:
-        return None
-    resultado = {}
-    for chave, valor in documento.items():
-        if chave == '_id':
-            resultado[chave] = str(valor)
-        else:
-            resultado[chave] = valor
-    return resultado
-```
-
-2. **Validação de Distância**: Implementação da fórmula de Haversine para cálculo preciso de distâncias:
-   ```python
-def calcular_distancia(lat1, lon1, lat2, lon2):
-    R = 6371  # Raio da Terra em km
-    lat1_rad = math.radians(lat1)
-    lon1_rad = math.radians(lon1)
-    lat2_rad = math.radians(lat2)
-    lon2_rad = math.radians(lon2)
-    
-    dlon = lon2_rad - lon1_rad
-    dlat = lat2_rad - lat1_rad
-    
-    a = math.sin(dlat/2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon/2)**2
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-    
-    return R * c
-```
-
-3. **Integração com Mapas**: Implementação de visualização geoespacial usando Leaflet.js com suporte a:
-   - Markers interativos
-   - Zoom e pan
-   - Overlay de estabelecimentos
-   - Seleção de pontos de referência
-
-## Considerações de Segurança
-
-1. **Validação de Entrada**: Todas as entradas são validadas tanto no frontend quanto no backend
-2. **Segurança de Banco de Dados**: Uso de variáveis de ambiente para credenciais
-3. **Validação Geoespacial**: Prevenção de cadastro de estabelecimentos muito próximos
-4. **Proteção contra CSRF**: Uso de tokens de sessão
-
-## Melhorias Futuras
-
-1. Implementação de autenticação de usuários
-2. Adição de filtros avançados para buscas
-3. Implementação de cache para consultas frequentes
-4. Adição de suporte para diferentes unidades de medida
-5. Implementação de backup automático do banco de dados
-
-## Como Instalar? 🚀
+## Como Instalar localmente? 🚀
 
 1. Tenha instalado:
    - Python 3.7 ou superior
@@ -162,7 +108,7 @@ def calcular_distancia(lat1, lon1, lat2, lon2):
    SECRET_KEY=sua_chave_secreta
    ```
 
-## Como Executar? 🏃‍♂️
+## Como Executar localmente? 🏃‍♂️
 
 1. Inicie o MongoDB
 2. Execute a aplicação:
