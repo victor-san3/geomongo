@@ -11,7 +11,7 @@ load_dotenv()
 
 # Inicializar app Flask
 app = Flask(__name__)
-app.secret_key = os.getenv('SECRET_KEY', 'development_key')
+app.secret_key = os.getenv('SECRET_KEY')
 
 # Habilitar CORS para API
 @app.after_request
@@ -341,4 +341,6 @@ def api_busca_proximos():
 
 if __name__ == '__main__':
     # Em ambiente Docker, sempre usar 0.0.0.0 como host
-    app.run(debug=True, host='0.0.0.0', port=int(os.getenv('PORT', 5000)))
+    debug_mode = os.getenv('DEBUG', 'false').lower() == 'true'
+    port = int(os.getenv('PORT', 5000))
+    app.run(debug=debug_mode, host='0.0.0.0', port=port)
