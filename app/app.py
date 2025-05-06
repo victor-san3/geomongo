@@ -4,7 +4,9 @@ from pymongo.server_api import ServerApi
 from pymongo import GEOSPHERE
 import math
 import os
+import datetime
 from dotenv import load_dotenv
+from establishment_blockchain import EstablishmentBlockchain
 
 # Carregar variáveis de ambiente
 load_dotenv()
@@ -120,8 +122,21 @@ def cadastrar_estabelecimento():
             'longitude': longitude,
             'localizacao': localizacao
         }
+        # Inserir no MongoDB
+        result = colecao.insert_one(estabelecimento)
         
-        colecao.insert_one(estabelecimento)
+        # Registrar na blockchain
+        blockchain = EstablishmentBlockchain()
+        establishment_data = {
+            'establishment_id': str(result.inserted_id),
+            'nome': nome,
+            'latitude': latitude,
+            'longitude': longitude,
+            'timestamp': str(datetime.datetime.now())
+        }
+        blockchain.add_establishment(establishment_data)
+        
+        flash('Estabelecimento cadastrado com sucesso e registrado na blockchain!', 'success')
         flash('Estabelecimento cadastrado com sucesso!', 'success')
         return redirect(url_for('listar_estabelecimentos'))
     
@@ -141,7 +156,20 @@ def excluir_estabelecimento(nome):
     flash('Estabelecimento excluído com sucesso!', 'success')
     return redirect(url_for('listar_estabelecimentos'))
 
-# Função auxiliar para converter documentos MongoDB para dicionários serializáveis
+# Verificar status do estabelecimento na blockchain
+@app.route('/verificar-blockchain/<establishment_id>')
+def verificar_blockchain(establishment_id):
+    blockchain = EstablishmentBlockchain()
+    status = blockchain.get_establishment_status(establishment_id)
+    
+    if status['status'] == 'not_found':
+        flash('Estabelecimento não encontrado na blockchain', 'warning')
+    elif not status['chain_valid']:
+        flash('Atenção: A blockchain está corrompida!', 'danger')
+    else:
+        flash('Estabelecimento verificado na blockchain com sucesso!', 'success')
+    
+    return jsonify(status)
 def converter_para_dict(documento):
     if documento is None:
         return None

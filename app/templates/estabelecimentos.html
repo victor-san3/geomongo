@@ -14,7 +14,7 @@
                         <tr>
                             <th>Nome</th>
                             <th>Latitude</th>
-                            <th>Longitude</th>
+                            <th>Longitude</th>                            <th>Status Blockchain</th>                            <th>Status Blockchain</th>
                             <th>Ações</th>
                         </tr>
                     </thead>
@@ -22,8 +22,37 @@
                         {% for estabelecimento in estabelecimentos %}
                             <tr>
                                 <td>{{ estabelecimento.nome }}</td>
-                                <td>{{ estabelecimento.latitude }}</td>
-                                <td>{{ estabelecimento.longitude }}</td>
+                                <td>{{ estabelecimento.latitude }}</td>                                <td>
+                                    <button type="button" class="btn btn-info btn-sm" 
+                                            onclick="verificarBlockchain('{{ estabelecimento._id }}')"
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#blockchainModal{{ loop.index }}">
+                                        Verificar Blockchain
+                                    </button>
+                                    
+                                    <!-- Modal da Blockchain -->
+                                    <div class="modal fade" id="blockchainModal{{ loop.index }}" tabindex="-1" 
+                                         aria-labelledby="blockchainModalLabel{{ loop.index }}" aria-hidden="true">
+                                        <div class="modal-dialog modal-lg">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title" id="blockchainModalLabel{{ loop.index }}">
+                                                        Status da Blockchain - {{ estabelecimento.nome }}
+                                                    </h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" 
+                                                            aria-label="Close"></button>
+                                                </div>
+                                                <div class="modal-body" id="blockchainStatus{{ loop.index }}">
+                                                    <div class="text-center">
+                                                        <div class="spinner-border text-primary" role="status">
+                                                            <span class="visually-hidden">Carregando...</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>                                <td>{{ estabelecimento.longitude }}</td>
                                 <td>
                                     <div class="btn-group btn-group-sm">
                                         <button type="button" class="btn btn-danger" 
@@ -94,7 +123,80 @@
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         // Criar mapa centralizado no Brasil
-        const map = L.map('map').setView([-15.77972, -47.92972], 4);
+            function verificarBlockchain(establishmentId) {
+        const url = `/verificar-blockchain/${establishmentId}`;
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                // Encontrar o índice correto do modal
+                const modals = document.querySelectorAll('[id^="blockchainStatus"]');
+                let modalBody;
+                modals.forEach(modal => {
+                    if (modal.closest('.modal').style.display !== 'none') {
+                        modalBody = modal;
+                    }
+                });
+
+                if (!modalBody) return;
+
+                let statusHtml = '';
+                if (data.status === 'not_found') {
+                    statusHtml = `
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            ${data.message}
+                        </div>`;
+                } else {
+                    const block = data.block;
+                    const statusClass = data.chain_valid ? 'success' : 'danger';
+                    const statusIcon = data.chain_valid ? 'check-circle' : 'exclamation-circle';
+                    const statusText = data.chain_valid ? 'Válido' : 'Inválido';
+                    
+                    statusHtml = `
+                        <div class="alert alert-${statusClass}">
+                            <i class="fas fa-${statusIcon}"></i>
+                            Status: ${statusText}
+                        </div>
+                        <div class="card">
+                            <div class="card-header">
+                                <h6>Detalhes do Bloco</h6>
+                            </div>
+                            <div class="card-body">
+                                <dl class="row">
+                                    <dt class="col-sm-3">Índice</dt>
+                                    <dd class="col-sm-9">${block.index}</dd>
+                                    
+                                    <dt class="col-sm-3">Timestamp</dt>
+                                    <dd class="col-sm-9">${block.timestamp}</dd>
+                                    
+                                    <dt class="col-sm-3">Hash</dt>
+                                    <dd class="col-sm-9"><code>${block.hash}</code></dd>
+                                    
+                                    <dt class="col-sm-3">Hash Anterior</dt>
+                                    <dd class="col-sm-9"><code>${block.previous_hash}</code></dd>
+                                    
+                                    <dt class="col-sm-3">Nonce</dt>
+                                    <dd class="col-sm-9">${block.nonce}</dd>
+                                    
+                                    <dt class="col-sm-3">Tempo de Mineração</dt>
+                                    <dd class="col-sm-9">${block.mining_duration.toFixed(2)} segundos</dd>
+                                </dl>
+                            </div>
+                        </div>`;
+                }
+                
+                modalBody.innerHTML = statusHtml;
+            })
+            .catch(error => {
+                console.error('Erro ao verificar blockchain:', error);
+                const modalBody = document.querySelector('#blockchainStatus');
+                modalBody.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle"></i>
+                        Erro ao verificar status da blockchain
+                    </div>`;
+            });
+    }
         
         // Adicionar camada do OpenStreetMap
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
