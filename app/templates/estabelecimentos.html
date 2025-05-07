@@ -1,231 +1,323 @@
 {% extends "base.html" %}
 
+{% block head %}
+{{ super() }}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
+<style>
+    .map-container {
+        width: 100%;
+        height: 500px;
+        position: relative;
+        margin-bottom: 20px;
+        border-radius: 4px;
+        overflow: hidden;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    #establishment-map {
+        width: 100%;
+        height: 100%;
+    }
+    .code-block {
+        font-family: monospace;
+        background-color: #f5f5f5;
+        padding: 8px;
+        border-radius: 4px;
+        word-break: break-all;
+    }
+    .table-container {
+        margin-bottom: 20px;
+    }
+    .btn-action {
+        margin-right: 5px;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="card">
-    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">Lista de Estabelecimentos</h5>
-        <a href="{{ url_for('cadastrar_estabelecimento') }}" class="btn btn-success btn-sm">Novo Estabelecimento</a>
+<div class="container mt-4">
+    <!-- Header Section -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Estabelecimentos</h2>
+        <a href="{{ url_for('cadastrar_estabelecimento') }}" class="btn btn-success">
+            <i class="fas fa-plus"></i> Novo Estabelecimento
+        </a>
     </div>
-    <div class="card-body">
-        {% if estabelecimentos %}
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Nome</th>
-                            <th>Latitude</th>
-                            <th>Longitude</th>
-                            <th>Status Blockchain</th>
-                            <th>Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for estabelecimento in estabelecimentos %}
+    
+    <!-- Map Section -->
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0"><i class="fas fa-map-marked-alt"></i> Mapa de Estabelecimentos</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="map-container">
+                <div id="establishment-map"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table Section -->
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="fas fa-list"></i> Lista de Estabelecimentos</h5>
+        </div>
+        <div class="card-body">
+            {% if estabelecimentos %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
                             <tr>
-                                <td>{{ estabelecimento.nome }}</td>
-                                <td>{{ estabelecimento.latitude }}</td>
-                                <td>{{ estabelecimento.longitude }}</td>
-                                <td>
-                                    <button type="button" class="btn btn-info btn-sm" 
-                                            onclick="verificarBlockchain('{{ estabelecimento._id }}')"
-                                            data-bs-toggle="modal" 
-                                            data-bs-target="#blockchainModal{{ loop.index }}">
-                                        Verificar Blockchain
-                                    </button>
-                                    
-                                    <!-- Modal da Blockchain -->
-                                    <div class="modal fade" id="blockchainModal{{ loop.index }}" tabindex="-1" 
-                                         aria-labelledby="blockchainModalLabel{{ loop.index }}" aria-hidden="true">
-                                        <div class="modal-dialog modal-lg">
-                                            <div class="modal-content">
-                                                <div class="modal-header">
-                                                    <h5 class="modal-title" id="blockchainModalLabel{{ loop.index }}">
-                                                        Status da Blockchain - {{ estabelecimento.nome }}
-                                                    </h5>
-                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" 
-                                                            aria-label="Close"></button>
-                                                </div>
-                                                <div class="modal-body" id="blockchainStatus{{ loop.index }}">
-                                                    <div class="text-center">
-                                                        <div class="spinner-border text-primary" role="status">
-                                                            <span class="visually-hidden">Carregando...</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td>
-                                    <div class="btn-group btn-group-sm">
-                                        <button type="button" class="btn btn-danger" 
-                                                data-bs-toggle="modal" 
-                                                data-bs-target="#deleteModal{{ loop.index }}">
-                                            Excluir
-                                        </button>
-                                    </div>
-                                    
-                                    <!-- Modal de Exclusão -->
-                                    <div class="modal fade" id="deleteModal{{ loop.index }}" tabindex="-1" 
-                                         aria-labelledby="deleteModalLabel{{ loop.index }}" aria-hidden="true">
-                                        <div class="modal-dialog">
-                                            <div class="modal-content">
-                                                <div class="modal-header">
-                                                    <h5 class="modal-title" id="deleteModalLabel{{ loop.index }}">
-                                                        Confirmar Exclusão
-                                                    </h5>
-                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" 
-                                                            aria-label="Close"></button>
-                                                </div>
-                                                <div class="modal-body">
-                                                    Tem certeza que deseja excluir o estabelecimento 
-                                                    <strong>{{ estabelecimento.nome }}</strong>?
-                                                </div>
-                                                <div class="modal-footer">
-                                                    <button type="button" class="btn btn-secondary" 
-                                                            data-bs-dismiss="modal">Cancelar</button>
-                                                    <form action="{{ url_for('excluir_estabelecimento', nome=estabelecimento.nome) }}" 
-                                                          method="POST" style="display: inline;">
-                                                        <button type="submit" class="btn btn-danger">Confirmar Exclusão</button>
-                                                    </form>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </td>
+                                <th>Nome</th>
+                                <th>Latitude</th>
+                                <th>Longitude</th>
+                                <th>Status Blockchain</th>
+                                <th>Ações</th>
                             </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        {% else %}
-            <div class="alert alert-info">
-                Nenhum estabelecimento cadastrado. <a href="{{ url_for('cadastrar_estabelecimento') }}">Cadastre um agora</a>.
-            </div>
-        {% endif %}
+                        </thead>
+                        <tbody>
+                            {% for estabelecimento in estabelecimentos %}
+                                <tr>
+                                    <td>{{ estabelecimento.nome }}</td>
+                                    <td>{{ estabelecimento.latitude }}</td>
+                                    <td>{{ estabelecimento.longitude }}</td>
+                                    <td>
+                                        <button type="button" class="btn btn-info btn-sm" 
+                                                onclick="verificarBlockchain('{{ estabelecimento._id }}')"
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#blockchainModal-{{ loop.index }}">
+                                            <i class="fas fa-cube"></i> Verificar Blockchain
+                                        </button>
+                                    </td>
+                                    <td>
+                                        <button type="button" class="btn btn-danger btn-sm" 
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#deleteModal-{{ loop.index }}">
+                                            <i class="fas fa-trash"></i> Excluir
+                                        </button>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> Nenhum estabelecimento cadastrado. 
+                    <a href="{{ url_for('cadastrar_estabelecimento') }}">Cadastre um agora</a>.
+                </div>
+            {% endif %}
+        </div>
     </div>
 </div>
 
-<div class="row mt-4">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header bg-info text-white">
-                <h5 class="mb-0">Mapa de Estabelecimentos</h5>
+<!-- Blockchain Modals -->
+{% for estabelecimento in estabelecimentos %}
+<div class="modal fade" id="blockchainModal-{{ loop.index }}" tabindex="-1" 
+     aria-labelledby="blockchainModalLabel-{{ loop.index }}" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="blockchainModalLabel-{{ loop.index }}">
+                    <i class="fas fa-cube"></i> Status da Blockchain - {{ estabelecimento.nome }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="card-body">
-                <div class="map-container">
-                    <div id="map"></div>
+            <div class="modal-body" id="blockchainStatus-{{ loop.index }}">
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-2">Verificando status na blockchain...</p>
                 </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
             </div>
         </div>
     </div>
 </div>
+{% endfor %}
+
+<!-- Delete Confirmation Modals -->
+{% for estabelecimento in estabelecimentos %}
+<div class="modal fade" id="deleteModal-{{ loop.index }}" tabindex="-1" 
+     aria-labelledby="deleteModalLabel-{{ loop.index }}" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel-{{ loop.index }}">
+                    <i class="fas fa-exclamation-triangle text-danger"></i> Confirmar Exclusão
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Tem certeza que deseja excluir o estabelecimento <strong>{{ estabelecimento.nome }}</strong>?</p>
+                <p class="text-danger"><small>Esta ação não pode ser desfeita.</small></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times"></i> Cancelar
+                </button>
+                <form action="{{ url_for('excluir_estabelecimento', nome=estabelecimento.nome) }}" 
+                      method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash"></i> Confirmar Exclusão
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
 {% endblock %}
 
 {% block scripts %}
+{{ super() }}
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Criar mapa centralizado no Brasil
-            function verificarBlockchain(establishmentId) {
-        const url = `/verificar-blockchain/${establishmentId}`;
-        fetch(url)
-            .then(response => response.json())
-            .then(data => {
-                // Encontrar o índice correto do modal
-                const modals = document.querySelectorAll('[id^="blockchainStatus"]');
-                let modalBody;
-                modals.forEach(modal => {
-                    if (modal.closest('.modal').style.display !== 'none') {
-                        modalBody = modal;
-                    }
-                });
+// Store establishment data in a JavaScript array to avoid Jinja/JS conflicts
+const estabelecimentos = [
+    {% for estabelecimento in estabelecimentos %}
+    {
+        id: "{{ estabelecimento._id }}",
+        nome: "{{ estabelecimento.nome }}",
+        latitude: {{ estabelecimento.latitude }},
+        longitude: {{ estabelecimento.longitude }}
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+];
 
-                if (!modalBody) return;
-
-                let statusHtml = '';
-                if (data.status === 'not_found') {
-                    statusHtml = `
-                        <div class="alert alert-warning">
-                            <i class="fas fa-exclamation-triangle"></i>
-                            ${data.message}
-                        </div>`;
-                } else {
-                    const block = data.block;
-                    const statusClass = data.chain_valid ? 'success' : 'danger';
-                    const statusIcon = data.chain_valid ? 'check-circle' : 'exclamation-circle';
-                    const statusText = data.chain_valid ? 'Válido' : 'Inválido';
-                    
-                    statusHtml = `
-                        <div class="alert alert-${statusClass}">
-                            <i class="fas fa-${statusIcon}"></i>
-                            Status: ${statusText}
-                        </div>
-                        <div class="card">
-                            <div class="card-header">
-                                <h6>Detalhes do Bloco</h6>
-                            </div>
-                            <div class="card-body">
-                                <dl class="row">
-                                    <dt class="col-sm-3">Índice</dt>
-                                    <dd class="col-sm-9">${block.index}</dd>
-                                    
-                                    <dt class="col-sm-3">Timestamp</dt>
-                                    <dd class="col-sm-9">${block.timestamp}</dd>
-                                    
-                                    <dt class="col-sm-3">Hash</dt>
-                                    <dd class="col-sm-9"><code>${block.hash}</code></dd>
-                                    
-                                    <dt class="col-sm-3">Hash Anterior</dt>
-                                    <dd class="col-sm-9"><code>${block.previous_hash}</code></dd>
-                                    
-                                    <dt class="col-sm-3">Nonce</dt>
-                                    <dd class="col-sm-9">${block.nonce}</dd>
-                                    
-                                    <dt class="col-sm-3">Tempo de Mineração</dt>
-                                    <dd class="col-sm-9">${block.mining_duration.toFixed(2)} segundos</dd>
-                                </dl>
-                            </div>
-                        </div>`;
-                }
-                
-                modalBody.innerHTML = statusHtml;
-            })
-            .catch(error => {
-                console.error('Erro ao verificar blockchain:', error);
-                const modalBody = document.querySelector('#blockchainStatus');
-                modalBody.innerHTML = `
-                    <div class="alert alert-danger">
-                        <i class="fas fa-exclamation-circle"></i>
-                        Erro ao verificar status da blockchain
+// Function to verify blockchain status
+function verificarBlockchain(establishmentId) {
+    const url = `/verificar-blockchain/${establishmentId}`;
+    
+    // Find the correct modal ID based on the establishment ID
+    const establishment = estabelecimentos.find(e => e.id === establishmentId);
+    const index = estabelecimentos.indexOf(establishment) + 1;
+    const modalBody = document.getElementById(`blockchainStatus-${index}`);
+    
+    if (!modalBody) return;
+    
+    // Show loading state
+    modalBody.innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Carregando...</span>
+            </div>
+            <p class="mt-2">Verificando status na blockchain...</p>
+        </div>
+    `;
+    
+    // Fetch blockchain data
+    fetch(url)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Resposta da rede não foi ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            let statusHtml = '';
+            
+            if (data.status === 'not_found') {
+                statusHtml = `
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        ${data.message}
                     </div>`;
-            });
-    }
+            } else {
+                const block = data.block;
+                const statusClass = data.chain_valid ? 'success' : 'danger';
+                const statusIcon = data.chain_valid ? 'check-circle' : 'exclamation-circle';
+                const statusText = data.chain_valid ? 'Válido' : 'Inválido';
+                
+                statusHtml = `
+                    <div class="alert alert-${statusClass}">
+                        <i class="fas fa-${statusIcon}"></i>
+                        Status: ${statusText}
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0">Detalhes do Bloco</h6>
+                        </div>
+                        <div class="card-body">
+                            <dl class="row">
+                                <dt class="col-sm-3">Índice</dt>
+                                <dd class="col-sm-9">${block.index}</dd>
+                                
+                                <dt class="col-sm-3">Timestamp</dt>
+                                <dd class="col-sm-9">${block.timestamp}</dd>
+                                
+                                <dt class="col-sm-3">Hash</dt>
+                                <dd class="col-sm-9"><code class="code-block">${block.hash}</code></dd>
+                                
+                                <dt class="col-sm-3">Hash Anterior</dt>
+                                <dd class="col-sm-9"><code class="code-block">${block.previous_hash}</code></dd>
+                                
+                                <dt class="col-sm-3">Nonce</dt>
+                                <dd class="col-sm-9">${block.nonce}</dd>
+                                
+                                <dt class="col-sm-3">Tempo de Mineração</dt>
+                                <dd class="col-sm-9">${block.mining_duration.toFixed(2)} segundos</dd>
+                            </dl>
+                        </div>
+                    </div>`;
+            }
+            
+            modalBody.innerHTML = statusHtml;
+        })
+        .catch(error => {
+            console.error('Erro ao verificar blockchain:', error);
+            
+            modalBody.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-circle"></i>
+                    Erro ao verificar status da blockchain: ${error.message}
+                </div>`;
+        });
+}
+
+// Initialize map when DOM is fully loaded
+document.addEventListener('DOMContentLoaded', function() {
+    // Only initialize map if there are establishments
+    if (estabelecimentos.length > 0) {
+        // Create map centered on Brazil
+        const map = L.map('establishment-map').setView([-14.235004, -51.92528], 4);
         
-        // Adicionar camada do OpenStreetMap
+        // Add OpenStreetMap tile layer
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            attribution: '© OpenStreetMap contributors'
         }).addTo(map);
         
-        // Buscar estabelecimentos e adicionar marcadores
-        fetch('/api/estabelecimentos')
-            .then(response => response.json())
-            .then(data => {
-                L.geoJSON(data, {
-                    pointToLayer: function(feature, latlng) {
-                        return L.marker(latlng);
-                    },
-                    onEachFeature: function(feature, layer) {
-                        layer.bindPopup(feature.properties.name);
-                    }
-                }).addTo(map);
-                
-                // Se tivermos estabelecimentos, ajustar o mapa para mostrar todos
-                if (data.features.length > 0) {
-                    const geoLayer = L.geoJSON(data);
-                    map.fitBounds(geoLayer.getBounds(), { padding: [50, 50] });
-                }
-            })
-            .catch(error => console.error('Erro ao carregar estabelecimentos:', error));
-    });
+        // Add markers for each establishment
+        estabelecimentos.forEach(estabelecimento => {
+            L.marker([estabelecimento.latitude, estabelecimento.longitude])
+                .bindPopup(`<strong>${estabelecimento.nome}</strong>`)
+                .addTo(map);
+        });
+        
+        // If establishments exist but few in number, adjust zoom level
+        if (estabelecimentos.length === 1) {
+            map.setView([estabelecimentos[0].latitude, estabelecimentos[0].longitude], 10);
+        } else if (estabelecimentos.length < 5) {
+            // Create bounds from establishment coordinates
+            const bounds = L.latLngBounds(estabelecimentos.map(e => [e.latitude, e.longitude]));
+            map.fitBounds(bounds, { padding: [50, 50] });
+        }
+    } else {
+        // If no establishments, show empty map centered on Brazil
+        const map = L.map('establishment-map').setView([-14.235004, -51.92528], 4);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+        
+        // Add a message on the map
+        L.popup()
+            .setLatLng([-14.235004, -51.92528])
+            .setContent("<p>Nenhum estabelecimento cadastrado. Adicione um estabelecimento para ver no mapa.</p>")
+            .openOn(map);
+    }
+});
 </script>
 {% endblock %}
