@@ -369,16 +369,16 @@ def api_busca_proximos():
 
 @app.route('/api/estabelecimentos-geolocalizacao')
 def api_estabelecimentos_geolocalizacao():
-    # Get the same establishments data you're using in the template
-    estabelecimentos = get_estabelecimentos()  # Your existing function to get establishments
+    # Use the existing obter_estabelecimentos function to get GeoJSON data
+    geojson_data = obter_estabelecimentos().json
     
-    # Convert to a simple JSON structure that has just what the map needs
+    # Convert from GeoJSON to a simpler format for the map
     estabelecimentos_json = []
-    for estabelecimento in estabelecimentos:
+    for feature in geojson_data['features']:
         estabelecimentos_json.append({
-            'nome': estabelecimento.nome,
-            'latitude': float(estabelecimento.latitude),
-            'longitude': float(estabelecimento.longitude)
+            'nome': feature['properties']['name'],
+            'latitude': feature['geometry']['coordinates'][1],  # GeoJSON uses [longitude, latitude]
+            'longitude': feature['geometry']['coordinates'][0]
         })
     
     # Return as JSON response
