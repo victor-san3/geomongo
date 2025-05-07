@@ -367,6 +367,23 @@ def api_busca_proximos():
     except Exception as e:
         return jsonify({'success': False, 'message': f'Erro na busca: {str(e)}'}), 500
 
+@app.route('/api/estabelecimentos-geolocalizacao')
+def api_estabelecimentos_geolocalizacao():
+    # Get the same establishments data you're using in the template
+    estabelecimentos = get_estabelecimentos()  # Your existing function to get establishments
+    
+    # Convert to a simple JSON structure that has just what the map needs
+    estabelecimentos_json = []
+    for estabelecimento in estabelecimentos:
+        estabelecimentos_json.append({
+            'nome': estabelecimento.nome,
+            'latitude': float(estabelecimento.latitude),
+            'longitude': float(estabelecimento.longitude)
+        })
+    
+    # Return as JSON response
+    return jsonify(estabelecimentos_json)
+
 if __name__ == '__main__':
     # Em ambiente Docker, sempre usar 0.0.0.0 como host
     debug_mode = os.getenv('DEBUG', 'false').lower() == 'true'
