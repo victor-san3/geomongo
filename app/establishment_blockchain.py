@@ -7,6 +7,7 @@ import threading
 from pymongo import MongoClient
 from pymongo.server_api import ServerApi
 from dotenv import load_dotenv
+from concurrent.futures import ThreadPoolExecutor
 
 class Block:
     def __init__(self, index, timestamp, establishment_data, previous_hash):
@@ -164,6 +165,82 @@ class EstablishmentBlockchain:
         
         self.blockchain_collection.insert_one(block_data)
         return new_block
+        
+    def add_establishment_async(self, establishment_data):
+        """Adiciona um novo estabelecimento à blockchain de forma assíncrona"""
+        # Criar um registro temporário na blockchain com status 'pending'
+        previous_block = self.get_latest_block()
+        new_block_index = len(self.chain)
+        
+        # Criar um registro temporário no MongoDB
+        temp_block_data = {
+            'index': new_block_index,
+            'timestamp': str(datetime.datetime.now()),
+            'establishment_data': establishment_data,
+            'previous_hash': previous_block.hash,
+            'status': 'pending',
+            'mining_start': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+        
+        # Inserir o registro temporário
+        temp_block_id = self.blockchain_collection.insert_one(temp_block_data).inserted_id
+        
+        # Iniciar a mineração em uma thread separada
+        def mine_in_background():
+            try:
+                # Criar o bloco
+                new_block = Block(
+                    new_block_index,
+                    temp_block_data['timestamp'],
+                    establishment_data,
+                    previous_block.hash
+                )
+                
+                # Registrar tempo de início da mineração
+                hora_inicio = datetime.datetime.now()
+                print(f"Iniciando mineração do bloco em: {hora_inicio.strftime('%Y-%m-%d %H:%M:%S')}")
+                
+                # Minerar o bloco
+                new_block.mine_block(self.difficulty)
+                
+                # Registrar tempo de fim da mineração
+                hora_fim = datetime.datetime.now()
+                print(f"Mineração concluída em: {hora_fim.strftime('%Y-%m-%d %H:%M:%S')}")
+                print(f"Tempo total de mineração: {(hora_fim - hora_inicio).total_seconds()} segundos")
+                
+                # Adicionar bloco à chain
+                self.chain.append(new_block)
+                
+                # Atualizar o registro no MongoDB
+                block_data = new_block.to_dict()
+                block_data['mining_start'] = hora_inicio.strftime('%Y-%m-%d %H:%M:%S')
+                block_data['mining_end'] = hora_fim.strftime('%Y-%m-%d %H:%M:%S')
+                block_data['mining_duration'] = (hora_fim - hora_inicio).total_seconds()
+                block_data['status'] = 'completed'
+                
+                self.blockchain_collection.update_one(
+                    {'_id': temp_block_id},
+                    {'$set': block_data}
+                )
+                
+                print(f"Bloco {new_block_index} adicionado à blockchain com sucesso!")
+            except Exception as e:
+                print(f"Erro durante a mineração do bloco: {str(e)}")
+                # Atualizar o status para 'failed' em caso de erro
+                self.blockchain_collection.update_one(
+                    {'_id': temp_block_id},
+                    {'$set': {'status': 'failed', 'error': str(e)}}
+                )
+        
+        # Iniciar a thread de mineração
+        executor = ThreadPoolExecutor(max_workers=1)
+        executor.submit(mine_in_background)
+        
+        return {
+            'status': 'pending',
+            'message': 'Estabelecimento adicionado. Mineração iniciada em segundo plano.',
+            'block_index': new_block_index
+        }
 
     def find_establishment_block(self, establishment_id):
         """Encontra o bloco de um estabelecimento específico"""
@@ -195,6 +272,34 @@ class EstablishmentBlockchain:
 
     def get_establishment_status(self, establishment_id):
         """Retorna o status de um estabelecimento na blockchain"""
+        # Primeiro, verificar se existe um bloco pendente para este estabelecimento
+        pending_block = self.blockchain_collection.find_one({
+            'establishment_data.establishment_id': establishment_id,
+            'status': 'pending'
+        })
+        
+        if pending_block:
+            return {
+                "status": "pending",
+                "message": "Estabelecimento está sendo minerado na blockchain",
+                "block": pending_block
+            }
+        
+        # Verificar se existe um bloco com erro
+        failed_block = self.blockchain_collection.find_one({
+            'establishment_data.establishment_id': establishment_id,
+            'status': 'failed'
+        })
+        
+        if failed_block:
+            return {
+                "status": "failed",
+                "message": "Houve um erro na mineração do bloco",
+                "block": failed_block,
+                "error": failed_block.get('error', 'Erro desconhecido')
+            }
+        
+        # Buscar o bloco completo
         block = self.find_establishment_block(establishment_id)
         if not block:
             return {

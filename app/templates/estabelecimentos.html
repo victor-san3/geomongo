@@ -165,6 +165,21 @@
                             <i class="fas fa-exclamation-triangle"></i>
                             ${data.message}
                         </div>`;
+                } else if (data.status === 'pending') {
+                    statusHtml = `
+                        <div class="alert alert-info">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            ${data.message}
+                        </div>
+                        <p>A mineração do bloco está em andamento. Isso pode levar alguns minutos.</p>
+                        <p>Iniciado em: ${data.block.mining_start}</p>`;
+                } else if (data.status === 'failed') {
+                    statusHtml = `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-circle"></i>
+                            ${data.message}
+                        </div>
+                        <p>Erro: ${data.error || 'Erro desconhecido'}</p>`;
                 } else {
                     const block = data.block;
                     const statusClass = data.chain_valid ? 'success' : 'danger';

@@ -76,6 +76,21 @@ def calcular_distancia(lat1, lon1, lat2, lon2):
     
     return R * c
 
+# Função para converter documento MongoDB para dict serializável
+def converter_para_dict(documento):
+    if documento is None:
+        return None
+    
+    # Cria uma cópia do documento para não modificar o original
+    resultado = {}
+    for chave, valor in documento.items():
+        # Converte _id para string
+        if chave == '_id':
+            resultado[chave] = str(valor)
+        else:
+            resultado[chave] = valor
+    return resultado
+
 # Rota da página inicial
 @app.route('/')
 def index():
@@ -125,7 +140,7 @@ def cadastrar_estabelecimento():
         # Inserir no MongoDB
         result = colecao.insert_one(estabelecimento)
         
-        # Registrar na blockchain
+        # Registrar na blockchain de forma assíncrona
         blockchain = EstablishmentBlockchain()
         establishment_data = {
             'establishment_id': str(result.inserted_id),
@@ -134,11 +149,9 @@ def cadastrar_estabelecimento():
             'longitude': longitude,
             'timestamp': str(datetime.datetime.now())
         }
-        blockchain.add_establishment(establishment_data)
+        blockchain.add_establishment_async(establishment_data)
         
-        flash('Estabelecimento cadastrado com sucesso e registrado na blockchain!', 'success')
-        flash('Estabelecimento cadastrado com sucesso!', 'success')
-        return redirect(url_for('listar_estabelecimentos'))
+        flash('Estabelecimento cadastrado com sucesso! A mineração na blockchain foi iniciada em segundo plano.', 'success')
     
     return render_template('cadastro.html')
 
@@ -170,19 +183,6 @@ def verificar_blockchain(establishment_id):
         flash('Estabelecimento verificado na blockchain com sucesso!', 'success')
     
     return jsonify(status)
-def converter_para_dict(documento):
-    if documento is None:
-        return None
-    
-    # Cria uma cópia do documento para não modificar o original
-    resultado = {}
-    for chave, valor in documento.items():
-        # Converte _id para string
-        if chave == '_id':
-            resultado[chave] = str(valor)
-        else:
-            resultado[chave] = valor
-    return resultado
 
 # Buscar estabelecimentos próximos
 @app.route('/busca-proximos', methods=['GET', 'POST'])
@@ -267,6 +267,7 @@ def obter_estabelecimentos():
 @app.route('/api/cadastro', methods=['POST'])
 def api_cadastrar_estabelecimento():
     try:
+        # Obter dados do formulário
         nome = request.form.get('nome')
         latitude = float(request.form.get('latitude'))
         longitude = float(request.form.get('longitude'))
@@ -303,13 +304,26 @@ def api_cadastrar_estabelecimento():
             'localizacao': localizacao
         }
         
-        colecao.insert_one(estabelecimento)
-        return jsonify({'success': True, 'message': 'Estabelecimento cadastrado com sucesso!'}), 201
+        # Corrigido: Inserir apenas uma vez
+        result = colecao.insert_one(estabelecimento)
+        
+        # Registrar na blockchain de forma assíncrona
+        blockchain = EstablishmentBlockchain()
+        establishment_data = {
+            'establishment_id': str(result.inserted_id),
+            'nome': nome,
+            'latitude': latitude,
+            'longitude': longitude,
+            'timestamp': str(datetime.datetime.now())
+        }
+        blockchain.add_establishment_async(establishment_data)
+        
+        return jsonify({'success': True, 'message': 'Estabelecimento cadastrado com sucesso! A mineração na blockchain foi iniciada em segundo plano.'}), 201
     except Exception as e:
         return jsonify({'success': False, 'message': f'Erro ao cadastrar: {str(e)}'}), 500
 
 # API endpoint for deleting establishments
-@app.route('/api/excluir/<nome>', methods=['POST'])
+@app.route('/api/excluir/<nome>', methods=['POST', 'DELETE'])
 def api_excluir_estabelecimento(nome):
     try:
         result = colecao.delete_one({'nome': nome})
