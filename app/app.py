@@ -1,19 +1,21 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
 from pymongo import GEOSPHERE
 import math
 import os
 import datetime
+import json
 from dotenv import load_dotenv
-from establishment_blockchain import EstablishmentBlockchain
+from establishment_blockchain import EstablishmentBlockchain, Block
 
 # Carregar variáveis de ambiente
 load_dotenv()
 
 # Inicializar app Flask
 app = Flask(__name__)
-app.secret_key = os.getenv('SECRET_KEY')
+# Ensure we have a secret key for sessions
+app.secret_key = os.getenv('SECRET_KEY', 'dev_secret_key_for_blockchain_demo')
 
 # Habilitar CORS para API
 @app.after_request
@@ -397,6 +399,148 @@ def api_estabelecimentos_geolocalizacao():
     
     # Return as JSON response
     return jsonify(estabelecimentos_json)
+
+# Blockchain validation routes
+@app.route('/blockchain-validation')
+def validate_blockchain():
+    blockchain = EstablishmentBlockchain()
+    blocks = []
+    
+    for block in blockchain.chain:
+        blocks.append(block.to_dict())
+    
+    # Check if validation was performed
+    chain_status = session.pop('chain_status', None)
+    validation_errors = session.pop('validation_errors', None)
+    tampered_blocks = session.pop('tampered_blocks', [])
+    
+    return render_template(
+        'blockchain_validation.html', 
+        blocks=blocks, 
+        chain_status=chain_status,
+        validation_errors=validation_errors,
+        tampered_blocks=tampered_blocks
+    )
+
+@app.route('/validate-blockchain', methods=['POST'])
+def perform_blockchain_validation():
+    blockchain = EstablishmentBlockchain()
+    is_valid = blockchain.is_chain_valid()
+    validation_errors = []
+    
+    # If blockchain is invalid, find the specific issues
+    if not is_valid:
+        validation_errors = get_blockchain_validation_errors(blockchain)
+    
+    # Store validation results in session for the redirect
+    session['chain_status'] = is_valid
+    session['validation_errors'] = validation_errors
+    
+    if is_valid:
+        flash('Blockchain validada com sucesso! Todos os blocos estão íntegros.', 'success')
+    else:
+        flash('ALERTA: Foram encontradas inconsistências na blockchain!', 'danger')
+    
+    return redirect(url_for('validate_blockchain'))
+
+def get_blockchain_validation_errors(blockchain):
+    """Identify specific validation errors in the blockchain"""
+    errors = []
+    tampered_blocks = set()  # Keep track of tampered block indices
+    
+    for i in range(1, len(blockchain.chain)):
+        current_block = blockchain.chain[i]
+        previous_block = blockchain.chain[i-1]
+        
+        block_has_error = False
+        
+        # Check current hash
+        calculated_hash = current_block.calculate_hash()
+        if current_block.hash != calculated_hash:
+            errors.append(f"Bloco #{current_block.index}: Hash calculado não corresponde ao hash armazenado.")
+            tampered_blocks.add(current_block.index)
+            block_has_error = True
+            # Add more detail to help understand the tampering
+            errors.append(f"  - Hash armazenado: {current_block.hash[:10]}...")
+            errors.append(f"  - Hash calculado: {calculated_hash[:10]}...")
+        
+        # Check previous hash
+        if current_block.previous_hash != previous_block.hash:
+            errors.append(f"Bloco #{current_block.index}: Referência ao hash anterior inválida.")
+            tampered_blocks.add(current_block.index)
+            block_has_error = True
+            # Add more detail
+            errors.append(f"  - Hash anterior armazenado: {current_block.previous_hash[:10]}...")
+            errors.append(f"  - Hash do bloco anterior: {previous_block.hash[:10]}...")
+        
+        # Check proof of work
+        if current_block.hash[:blockchain.difficulty] != "0" * blockchain.difficulty:
+            errors.append(f"Bloco #{current_block.index}: Prova de trabalho inválida.")
+            tampered_blocks.add(current_block.index)
+            block_has_error = True
+            # Add more detail
+            errors.append(f"  - Prefixo atual: {current_block.hash[:blockchain.difficulty]}")
+            errors.append(f"  - Prefixo esperado: {'0' * blockchain.difficulty}")
+        
+        # If there was an error, provide info about the block
+        if block_has_error:
+            if isinstance(current_block.establishment_data, dict) and 'nome' in current_block.establishment_data:
+                errors.append(f"  - Nome do estabelecimento: {current_block.establishment_data['nome']}")
+    
+    # Include tampered block indices in session
+    session['tampered_blocks'] = list(tampered_blocks)
+    
+    return errors
+
+@app.route('/tamper-block', methods=['POST'])
+def tamper_block():
+    """Tamper with a block to demonstrate blockchain validation"""
+    block_index = int(request.form.get('block_index'))
+    
+    blockchain = EstablishmentBlockchain()
+    
+    # Find and tamper the block
+    if 0 <= block_index < len(blockchain.chain):
+        # Modify the block in MongoDB
+        block = blockchain.chain[block_index]
+        
+        # Simple tampering: change the establishment name
+        if isinstance(block.establishment_data, dict) and 'nome' in block.establishment_data:
+            tampered_data = block.establishment_data.copy()
+            tampered_data['nome'] = tampered_data['nome'] + " (Adulterado)"
+            
+            # Update in MongoDB without recalculating hash (this breaks the chain)
+            blockchain.blockchain_collection.update_one(
+                {'index': block_index},
+                {'$set': {'establishment_data': tampered_data}}
+            )
+            
+            flash(f'Bloco #{block_index} foi adulterado para demonstração. Valide a blockchain para ver o resultado.', 'warning')
+        else:
+            flash('Não foi possível adulterar este bloco.', 'danger')
+    else:
+        flash('Índice de bloco inválido.', 'danger')
+    
+    return redirect(url_for('validate_blockchain'))
+
+@app.route('/restore-blockchain')
+def restore_blockchain():
+    """Restore the blockchain to its original state after tampering"""
+    blockchain = EstablishmentBlockchain()
+    
+    # For each block in the chain, recalculate its hash and update in MongoDB
+    for i in range(len(blockchain.chain)):
+        block = blockchain.chain[i]
+        original_hash = block.calculate_hash()
+        
+        # Update the hash in MongoDB
+        blockchain.blockchain_collection.update_one(
+            {'index': block.index},
+            {'$set': {'hash': original_hash}}
+        )
+    
+    flash('Blockchain restaurada ao estado original.', 'success')
+    return redirect(url_for('validate_blockchain'))
 
 if __name__ == '__main__':
     # Em ambiente Docker, sempre usar 0.0.0.0 como host

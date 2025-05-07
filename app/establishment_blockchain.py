@@ -128,7 +128,12 @@ class EstablishmentBlockchain:
 
     def create_genesis_block(self):
         """Cria o bloco genesis da blockchain"""
-        return Block(0, str(datetime.datetime.now()), "Genesis Block", "0")
+        genesis_block = Block(0, str(datetime.datetime.now()), "Genesis Block", "0")
+        # Mine the genesis block to ensure it passes validation
+        print("Minerando bloco genesis...")
+        genesis_block.mine_block(self.difficulty)
+        print(f"Bloco genesis minerado com hash: {genesis_block.hash}")
+        return genesis_block
 
     def get_latest_block(self):
         """Retorna o último bloco da chain"""
@@ -252,6 +257,10 @@ class EstablishmentBlockchain:
 
     def is_chain_valid(self):
         """Valida toda a cadeia blockchain"""
+        # If the blockchain has only the genesis block, it's valid
+        if len(self.chain) <= 1:
+            return True
+            
         for i in range(1, len(self.chain)):
             current_block = self.chain[i]
             previous_block = self.chain[i-1]

@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+    <h1 class="mb-4">Validação da Blockchain</h1>
+    
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="card-title mb-0">Status da Blockchain</h3>
+                </div>
+                <div class="card-body">
+                    {% if chain_status is defined %}
+                        {% if chain_status %}
+                            <div class="alert alert-success">
+                                <h4><i class="fas fa-check-circle"></i> Blockchain Íntegra</h4>
+                                <p>Todos os blocos foram validados com sucesso.</p>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-danger">
+                                <h4><i class="fas fa-exclamation-triangle"></i> Blockchain Corrompida</h4>
+                                <p>Foram detectadas alterações não autorizadas na blockchain.</p>
+                                {% if validation_errors %}
+                                    <hr>
+                                    <h5>Erros encontrados:</h5>
+                                    <div class="table-responsive">
+                                        <table class="table table-bordered table-striped">
+                                            <thead class="table-danger">
+                                                <tr>
+                                                    <th>Bloco</th>
+                                                    <th>Tipo de Erro</th>
+                                                    <th>Descrição</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                            {% for error in validation_errors %}
+                                                <tr>
+                                                    {% if 'Bloco #' in error %}
+                                                        <td>{{ error.split(':')[0].replace('Bloco #', '') }}</td>
+                                                        <td>
+                                                            {% if 'Hash calculado' in error %}
+                                                                <span class="badge bg-danger">Hash Adulterado</span>
+                                                            {% elif 'hash anterior' in error %}
+                                                                <span class="badge bg-warning text-dark">Cadeia Quebrada</span>
+                                                            {% elif 'Prova de trabalho' in error %}
+                                                                <span class="badge bg-info text-dark">PoW Inválido</span>
+                                                            {% else %}
+                                                                <span class="badge bg-secondary">Erro Desconhecido</span>
+                                                            {% endif %}
+                                                        </td>
+                                                        <td>{{ error.split(':', 1)[1].strip() }}</td>
+                                                    {% else %}
+                                                        <td colspan="3">{{ error }}</td>
+                                                    {% endif %}
+                                                </tr>
+                                            {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-info">
+                            <p>Clique no botão abaixo para validar a integridade da blockchain.</p>
+                        </div>
+                    {% endif %}
+                    
+                    <form action="{{ url_for('perform_blockchain_validation') }}" method="post" class="mb-3">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-check-circle"></i> Validar Blockchain
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if blocks %}
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="card-title mb-0">Blocos na Blockchain</h3>
+                </div>
+                <div class="card-body">
+                    <div class="accordion" id="blocksAccordion">
+                        {% for block in blocks %}
+                        {% set is_tampered = tampered_blocks and block.index|string in tampered_blocks|map('string')|list %}
+                        <div class="accordion-item {% if is_tampered %}border border-danger{% endif %}">
+                            <h2 class="accordion-header" id="heading{{ block.index }}">
+                                <button class="accordion-button {% if is_tampered %}bg-danger text-white{% endif %} {% if not loop.first %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" 
+                                        data-bs-target="#collapse{{ block.index }}">
+                                    Bloco #{{ block.index }} - {{ block.establishment_data.nome if block.establishment_data.nome is defined else "Genesis Block" }}
+                                    {% if is_tampered %}
+                                    <span class="badge bg-warning text-dark ms-2">BLOCO ADULTERADO</span>
+                                    {% endif %}
+                                </button>
+                            </h2>
+                            <div id="collapse{{ block.index }}" class="accordion-collapse collapse {% if loop.first %}show{% endif %}" 
+                                 data-bs-parent="#blocksAccordion">
+                                <div class="accordion-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <h5>Dados do Bloco</h5>
+                                            <ul class="list-group mb-3">
+                                                <li class="list-group-item"><strong>Índice:</strong> {{ block.index }}</li>
+                                                <li class="list-group-item"><strong>Timestamp:</strong> {{ block.timestamp }}</li>
+                                                <li class="list-group-item"><strong>Nonce:</strong> {{ block.nonce }}</li>
+                                                <li class="list-group-item"><strong>Hash Anterior:</strong> 
+                                                    <span class="text-break">{{ block.previous_hash }}</span>
+                                                </li>
+                                                <li class="list-group-item"><strong>Hash do Bloco:</strong> 
+                                                    <span class="text-break">{{ block.hash }}</span>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h5>Dados do Estabelecimento</h5>
+                                            {% if block.index > 0 %}
+                                                <ul class="list-group">
+                                                    <li class="list-group-item"><strong>ID:</strong> {{ block.establishment_data.establishment_id }}</li>
+                                                    <li class="list-group-item"><strong>Nome:</strong> {{ block.establishment_data.nome }}</li>
+                                                    <li class="list-group-item"><strong>Latitude:</strong> {{ block.establishment_data.latitude }}</li>
+                                                    <li class="list-group-item"><strong>Longitude:</strong> {{ block.establishment_data.longitude }}</li>
+                                                    <li class="list-group-item"><strong>Timestamp:</strong> {{ block.establishment_data.timestamp }}</li>
+                                                </ul>
+                                            {% else %}
+                                                <div class="alert alert-secondary">
+                                                    Este é o bloco gênesis da blockchain.
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    
+                                    {% if block.index > 0 %}
+                                    <div class="mt-3">
+                                        <h5>Ferramentas de Teste</h5>
+                                        <form action="{{ url_for('tamper_block') }}" method="post" class="mb-2">
+                                            <input type="hidden" name="block_index" value="{{ block.index }}">
+                                            <button type="submit" class="btn btn-warning">
+                                                <i class="fas fa-edit"></i> Simular Adulteração deste Bloco
+                                            </button>
+                                            <small class="text-muted ms-2">Apenas para fins de demonstração</small>
+                                        </form>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <a href="{{ url_for('validate_blockchain') }}" class="btn btn-primary">
+                <i class="fas fa-sync"></i> Atualizar Página
+            </a>
+            <a href="{{ url_for('restore_blockchain') }}" class="btn btn-success">
+                <i class="fas fa-undo"></i> Restaurar Blockchain Original
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // JavaScript para mensagens de alerta temporizadas
+    document.addEventListener('DOMContentLoaded', function() {
+        // Auto-dismiss alerts after 5 seconds
+        setTimeout(function() {
+            let alerts = document.querySelectorAll('.alert');
+            alerts.forEach(function(alert) {
+                let bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            });
+        }, 5000);
+    });
+</script>
+{% endblock %}
