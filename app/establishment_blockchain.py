@@ -201,11 +201,19 @@ class EstablishmentBlockchain:
                 "status": "not_found",
                 "message": "Estabelecimento não encontrado na blockchain"
             }
-
+        
+        # Get the block data from MongoDB to include mining_duration
+        block_data = self.blockchain_collection.find_one({'hash': block.hash})
+        block_dict = block.to_dict()
+        
+        # Add mining_duration if available in MongoDB
+        if block_data and 'mining_duration' in block_data:
+            block_dict['mining_duration'] = block_data['mining_duration']
+        
         is_valid = self.is_chain_valid()
         return {
             "status": "valid" if is_valid else "invalid",
-            "block": block.to_dict(),
+            "block": block_dict,
             "chain_valid": is_valid,
             "message": "Bloco válido na blockchain" if is_valid else "Blockchain corrompida"
         }

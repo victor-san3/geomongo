@@ -198,7 +198,7 @@
                                     <dd class="col-sm-9">${block.nonce}</dd>
                                     
                                     <dt class="col-sm-3">Tempo de Mineração</dt>
-                                    <dd class="col-sm-9">${block.mining_duration.toFixed(2)} segundos</dd>
+                                    <dd class="col-sm-9">${block.mining_duration ? block.mining_duration.toFixed(2) : 'N/A'} segundos</dd>
                                 </dl>
                             </div>
                         </div>`;
