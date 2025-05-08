@@ -25,7 +25,7 @@ def add_cors_headers(response):
     response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE')
     return response
 
-# Conectar ao MongoDB
+# Conectar MongoDB
 uri = os.getenv('MONGO_URI')
 
 # Use a versão mais recente da ServerApi se disponível, mas com fallback para compatibilidade
@@ -40,11 +40,11 @@ try:
     client.admin.command('ping')
     print("Ping bem sucedido ao MongoDB!")
     
-    # If ping works, try to access the database
+    # Tentar acessar banco
     db = client['banco_estabelecimentos']
     print("Banco de dados selecionado com sucesso!")
     
-    # Try to access the collection
+    # Tentar acessar coleção
     colecao = db['estabelecimentos']
     print("Coleção selecionada com sucesso!")
     
@@ -78,7 +78,7 @@ def calcular_distancia(lat1, lon1, lat2, lon2):
     
     return R * c
 
-# Função para converter documento MongoDB para dict serializável
+# Converter doc MongoDB para dict
 def converter_para_dict(documento):
     if documento is None:
         return None
@@ -139,7 +139,7 @@ def cadastrar_estabelecimento():
             'longitude': longitude,
             'localizacao': localizacao
         }
-        # Inserir no MongoDB
+        # Inserir
         result = colecao.insert_one(estabelecimento)
         
         # Registrar na blockchain de forma assíncrona
@@ -501,7 +501,7 @@ def tamper_block():
     
     # Find and tamper the block
     if 0 <= block_index < len(blockchain.chain):
-        # Modify the block in MongoDB
+        # Modificar bloco
         block = blockchain.chain[block_index]
         
         # Simple tampering: change the establishment name
@@ -509,7 +509,7 @@ def tamper_block():
             tampered_data = block.establishment_data.copy()
             tampered_data['nome'] = tampered_data['nome'] + " (Adulterado)"
             
-            # Update in MongoDB without recalculating hash (this breaks the chain)
+            # Atualizar sem recalcular hash
             blockchain.blockchain_collection.update_one(
                 {'index': block_index},
                 {'$set': {'establishment_data': tampered_data}}
@@ -528,7 +528,7 @@ def restore_blockchain():
     """Restore the blockchain to its original state after tampering"""
     blockchain = EstablishmentBlockchain()
     
-    # For each block in the chain, recalculate its hash and update in MongoDB
+    # Recalcular hash e atualizar cada bloco
     for i in range(len(blockchain.chain)):
         block = blockchain.chain[i]
         original_hash = block.calculate_hash()

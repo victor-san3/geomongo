@@ -1,7 +1,4 @@
-"""
-Script to reset the blockchain collection in MongoDB
-This will allow you to start your blockchain from scratch
-"""
+# Script para resetar a coleção blockchain no MongoDB
 import os
 from pymongo import MongoClient
 from pymongo.server_api import ServerApi

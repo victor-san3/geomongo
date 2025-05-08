@@ -74,7 +74,7 @@ class Block:
         return False
 
     def to_dict(self):
-        """Converte o bloco para dicionário para armazenamento no MongoDB"""
+        # Converte bloco para dict do MongoDB
         return {
             'index': self.index,
             'timestamp': self.timestamp,
@@ -89,7 +89,7 @@ class EstablishmentBlockchain:
         # Carregar variáveis de ambiente
         load_dotenv()
         
-        # Conectar ao MongoDB usando as configurações do app principal
+        # Conectar ao MongoDB
         uri = os.getenv('MONGO_URI')
         
         try:
@@ -103,7 +103,7 @@ class EstablishmentBlockchain:
         self.chain = self.load_chain_from_db()
 
     def load_chain_from_db(self):
-        """Carrega a blockchain do MongoDB"""
+        # Carrega blockchain do MongoDB
         chain = []
         blocks = self.blockchain_collection.find().sort('index')
         
@@ -177,7 +177,7 @@ class EstablishmentBlockchain:
         previous_block = self.get_latest_block()
         new_block_index = len(self.chain)
         
-        # Criar um registro temporário no MongoDB
+        # Registro temporário
         temp_block_data = {
             'index': new_block_index,
             'timestamp': str(datetime.datetime.now()),
@@ -216,7 +216,7 @@ class EstablishmentBlockchain:
                 # Adicionar bloco à chain
                 self.chain.append(new_block)
                 
-                # Atualizar o registro no MongoDB
+                # Atualizar registro
                 block_data = new_block.to_dict()
                 block_data['mining_start'] = hora_inicio.strftime('%Y-%m-%d %H:%M:%S')
                 block_data['mining_end'] = hora_fim.strftime('%Y-%m-%d %H:%M:%S')
@@ -316,11 +316,11 @@ class EstablishmentBlockchain:
                 "message": "Estabelecimento não encontrado na blockchain"
             }
         
-        # Get the block data from MongoDB to include mining_duration
+        # Buscar dados do bloco com mining_duration
         block_data = self.blockchain_collection.find_one({'hash': block.hash})
         block_dict = block.to_dict()
         
-        # Add mining_duration if available in MongoDB
+        # Adicionar mining_duration se disponível
         if block_data and 'mining_duration' in block_data:
             block_dict['mining_duration'] = block_data['mining_duration']
         
